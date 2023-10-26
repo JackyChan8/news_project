@@ -1,0 +1,7 @@
+Django==4.2.6
+djangorestframework==3.14.0
+channels==3.0.5
+channels-redis==3.3.0
+django-taggit==4.0.0
+psycopg2-binary==2.9.9
+six==1.16.0

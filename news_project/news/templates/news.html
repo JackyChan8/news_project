@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %} {{ news.title }} {% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-3" style="max-width: 100%;">
+        <div class="row g-0">
+            <div class="col-md-4">
+                <img src="{{news.image.url}}" class="img-fluid rounded float-start" style="width: 100%;" alt="image">
+                {% if photos %}
+                    {% for photo in photos %}
+                        <img src="{{photo.images.url}}" class="img-fluid rounded-start" style="width: 100%;" alt="image">
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <div class="col-md-8">
+                <div class="card-body">
+                    <h5 class="card-title">{{ news.title }}</h5>
+                    <p class="card-text">{{ news.text }}</p>
+                    <div style="display:flex; align-items: center; justify-content: space-between;">
+                        <div style="display:flex, gap:5px">
+                            {% for tag in news.tags.all %}
+                                <a href="{% url 'tagged' tag.slug %}" class="badge text-bg-info text-white">#{{ tag }}</a>
+                            {% endfor %}
+                        </div>
+                        <p class="m-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                              <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                              <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                            </svg> <span>{{ views }}</span>
+                        </p>
+                    </div>
+                    <div class="btn-group d-block text-center" role="group" aria-label="Basic mixed styles example">
+                      <button type="button" id="like" class="btn btn-success">Likes {{ likes }}</button>
+                      <button type="button" id="dislike" class="btn btn-danger">DisLikes {{ dislikes }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    let newsSocket = null;
+    const idNews = "{{ news.pk }}";
+
+    const btn_like = document.getElementById('like');
+    const btn_dis_like = document.getElementById('dislike');
+
+    function socketSend(type) {
+        newsSocket.send(JSON.stringify({
+            "type": type
+        }));
+    }
+
+    function eventsListener() {
+        btn_like.addEventListener("click", function (e) {
+            btn_like.disabled = true;
+            socketSend(e.target.id);
+        });
+
+        btn_dis_like.addEventListener("click", function (e) {
+            btn_dis_like.disabled = true;
+            socketSend(e.target.id);
+        });
+    }
+
+    function increment(element) {
+        let text = element.textContent.split(" ");
+        let count = Number(text[1]);
+        count++;
+        element.textContent = `${text[0]} ${count}`;
+    }
+
+    function connect() {
+        const url = "ws://" + window.location.host + "/ws/news/" + idNews + "/"
+        newsSocket = new WebSocket(url);
+
+        newsSocket.onopen = function(e) {
+            console.log("Successfully connected to the WebSocket.");
+
+            // Events
+            eventsListener();
+        }
+
+        newsSocket.onclose = function(e) {
+            console.log("WebSocket connection closed unexpectedly. Trying to reconnect in 2s...");
+            setTimeout(function() {
+                console.log("Reconnecting...");
+                connect();
+            }, 2000);
+        };
+
+        newsSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+
+            switch (data.message) {
+                case "like":
+                    btn_like.disabled = false;
+                    increment(btn_like);
+                    break;
+                case "dislike":
+                    btn_dis_like.disabled = false;
+                    increment(btn_dis_like);
+                    break;
+                default:
+                    console.error("Unknown message type!");
+                    btn_dis_like.disabled = false;
+                    btn_like.disabled = false;
+                    break;
+            }
+        };
+
+        newsSocket.onerror = function(err) {
+            console.log("WebSocket encountered an error: " + err.message);
+            console.log("Closing the socket.");
+            newsSocket.close();
+        }
+    }
+    connect();
+</script>
+{% endblock content %}
